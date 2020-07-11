@@ -6,10 +6,11 @@ import (
 )
 
 const (
-	Header = 0
-	PreviousTagSize
-	Tag
+	Header          = 0
+	PreviousTagSize = 1
+	Tag             = 2
 )
+
 const (
 	TypeFlagsReserved0Mark byte = 0b11111000
 	TypeFlagsAudioMark     byte = 0b00000100
@@ -19,46 +20,234 @@ const (
 	TagReservedMark byte = 0b11000000
 	TagFilterMark   byte = 0b00100000
 	TagTagTypeMark  byte = 0b00011111
+
+	FrameTypeMark byte = 0b11110000
+	CodecIDMark   byte = 0b00001111
+
+	SoundFormatMark byte = 0b11110000
+	SoundRateMark   byte = 0b00001100
+	SoundSizeMark   byte = 0b00000010
+	SoundTypeMark   byte = 0b00000001
 )
 
-var TagTypeMap map[uint8]string = map[uint8]string{
-	8:  "audio",
-	9:  "video",
-	18: "script data",
+const (
+	TagTypeAudio      = 8
+	TagTypeVideo      = 9
+	TagTypeScriptData = 18
+
+	FilterNoPreProcessingRequired = 0
+	FilterPreProcessing           = 1
+
+	FrameTypeKeyFrame                = 1 // for AVC, a seekable frame
+	FrameTypeInterFrame              = 2 // for AVC, a non-seekable frame
+	FrameTypeDisposableInterFrame    = 3 // H.263 only
+	FrameTypeGeneratedKeyFrame       = 4 // reserved for server use only
+	FrameTypeVideoInfoOrCommandFrame = 5
+
+	CodecIDSorensonH263           = 2
+	CodecIDScreenVideo            = 3
+	CodecIDOn2Vp6                 = 4
+	CodecIDOn2Vp6WithAlphaChannel = 5
+	CodecIDScreenVideoVersion2    = 6
+	CodecIDAvc                    = 7
+
+	AvcPacketTypeAvcSequenceHeader = 0
+	AvcPacketTypeAvcNalu           = 1
+	AvcPacketTypeAvcEndOfSequence  = 2 // lower level NALU sequence ender is not required or supported
+
+	ScriptDataValueTypeNumber          = 0
+	ScriptDataValueTypeBoolean         = 1
+	ScriptDataValueTypeString          = 2
+	ScriptDataValueTypeObject          = 3
+	ScriptDataValueTypeMovieClip       = 4
+	ScriptDataValueTypeNull            = 5
+	ScriptDataValueTypeUndefined       = 6
+	ScriptDataValueTypeReference       = 7
+	ScriptDataValueTypeEcmaArray       = 8
+	ScriptDataValueTypeObjectEndMarker = 9
+	ScriptDataValueTypeStrictArray     = 10
+	ScriptDataValueTypeDate            = 11
+	ScriptDataValueTypeLongString      = 12
+
+	SoundFormatLinearPcmPlatformEndian = 0
+	SoundFormatAdpcm                   = 1
+	SoundFormatMp3                     = 2
+	SoundFormatLinearPcmLittleEndian   = 3
+	SoundFormatNellymoser16kHzMono     = 4
+	SoundFormatNellymoser8kHzMono      = 5
+	SoundFormatNellymoser              = 6
+	SoundFormatG711ALawLogarithmicPcm  = 7
+	SoundFormatG711MuLawLogarithmicPcm = 8
+	SoundFormatreserved                = 9
+	SoundFormatAAC                     = 10
+	SoundFormatSpeex                   = 11
+	SoundFormatMP3_8kHz                = 14
+	SoundFormatDeviceSpecificSound     = 15
+
+	SoundRate5_5kHz = 0
+	SoundRate11kHz  = 1
+	SoundRate22kHz  = 2
+	SoundRate44kHz  = 3
+
+	SoundSize8BitSamples  = 0
+	SoundSize16BitSamples = 1
+
+	soundTypeMonoSound   = 0
+	soundTypeStereoSound = 1
+
+	AACPacketTypeAacSequenceHeader = 0
+	AACPacketTypeAacRaw            = 1
+)
+
+var TagTypeMap = map[uint8]string{
+	TagTypeAudio:      "audio",
+	TagTypeVideo:      "video",
+	TagTypeScriptData: "script data",
+}
+
+var FilterMap = map[uint8]string{
+	FilterNoPreProcessingRequired: "No pre-processing required",
+	FilterPreProcessing:           "Pre-processing",
+}
+
+var FrameTypeMap = map[uint8]string{
+	FrameTypeKeyFrame:                "key frame",
+	FrameTypeInterFrame:              "inter frame",
+	FrameTypeDisposableInterFrame:    "disposable inter frame",
+	FrameTypeGeneratedKeyFrame:       "generated key frame",
+	FrameTypeVideoInfoOrCommandFrame: "video info/command frame",
+}
+
+var CodeIdMap = map[uint8]string{
+	CodecIDSorensonH263:           "Sorenson H.263",
+	CodecIDScreenVideo:            "Screen video",
+	CodecIDOn2Vp6:                 "On2 VP6",
+	CodecIDOn2Vp6WithAlphaChannel: "On2 VP6 with alpha channel",
+	CodecIDScreenVideoVersion2:    "Screen video version 2",
+	CodecIDAvc:                    "AVC",
+}
+
+var AvcPacketTypeMap = map[uint8]string{
+	AvcPacketTypeAvcSequenceHeader: "AVC sequence header",
+	AvcPacketTypeAvcNalu:           "AVC NALU",
+	AvcPacketTypeAvcEndOfSequence:  "AVC end of sequence",
+}
+
+var SoundFormatMap = map[uint8]string{
+	SoundFormatLinearPcmPlatformEndian: "Linear PCM, platform endian",
+	SoundFormatAdpcm:                   "ADPCM",
+	SoundFormatMp3:                     "MP3",
+	SoundFormatLinearPcmLittleEndian:   "Linear PCM, little endian",
+	SoundFormatNellymoser16kHzMono:     "Nellymoser 16 kHz mono",
+	SoundFormatNellymoser8kHzMono:      "Nellymoser 8 kHz mono",
+	SoundFormatNellymoser:              "Nellymoser",
+	SoundFormatG711ALawLogarithmicPcm:  "G.711 A-law logarithmic PCM",
+	SoundFormatG711MuLawLogarithmicPcm: "G.711 mu-law logarithmic PCM",
+	SoundFormatreserved:                "reserved",
+	SoundFormatAAC:                     "AAC",
+	SoundFormatSpeex:                   "Speex",
+	SoundFormatMP3_8kHz:                "MP3 8 kHz",
+	SoundFormatDeviceSpecificSound:     "Device-specific sound",
+}
+
+var SoundRateMap = map[uint8]string{
+	SoundRate5_5kHz: "5.5 kHz",
+	SoundRate11kHz:  "11 kHz",
+	SoundRate22kHz:  "22 kHz",
+	SoundRate44kHz:  "44 kHz",
+}
+
+var SoundSizeMap = map[uint8]string{
+	SoundSize8BitSamples:  "8-bit samples",
+	SoundSize16BitSamples: "16-bit samples",
+}
+
+var SoundTypeMap = map[uint8]string{
+	soundTypeMonoSound:   "Mono sound",
+	soundTypeStereoSound: "Stereo sound",
+}
+
+var AACPacketTypeMap = map[uint8]string{
+	AACPacketTypeAacSequenceHeader: "AAC sequence header",
+	AACPacketTypeAacRaw:            "AAC raw",
+}
+
+var ScriptDataValueTypeSet = map[uint8]string{
+	ScriptDataValueTypeNumber:          "Number",
+	ScriptDataValueTypeBoolean:         "Boolean",
+	ScriptDataValueTypeString:          "String",
+	ScriptDataValueTypeObject:          "Object",
+	ScriptDataValueTypeMovieClip:       "MovieClip (reserved, not supported)",
+	ScriptDataValueTypeNull:            "Null",
+	ScriptDataValueTypeUndefined:       "Undefined",
+	ScriptDataValueTypeReference:       "Reference",
+	ScriptDataValueTypeEcmaArray:       "ECMA array",
+	ScriptDataValueTypeObjectEndMarker: "Object end marker",
+	ScriptDataValueTypeStrictArray:     "Strict array",
+	ScriptDataValueTypeDate:            "Date",
+	ScriptDataValueTypeLongString:      "Long string",
 }
 
 type Flv struct {
 	State              int
 	PreviousTagSizeNum int
+	CurrentTag         *CurrentTag
+}
+
+type CurrentTag struct {
+	Length        int
+	Filter        uint8
+	TagType       uint8
+	FrameType     uint8
+	CodeId        uint8
+	AVCPacketType uint8
+	SoundFormat   uint8
+	AACPacketType uint8
 }
 
 func (f *Flv) Parse(buf []byte) ([]byte, error) {
 	//fmt.Println("Parse")
-	var err error
+
 	var ok bool
-	if f.State == Header {
-		buf, ok, err = f.parseHeader(buf)
-		if ok {
-			f.State = PreviousTagSize
+	var err error
+	for true {
+		if f.State == Header {
+			buf, ok, err = f.parseHeader(buf)
+			if err != nil {
+				return nil, fmt.Errorf("f.parseHeader failed, err:%v", err)
+			}
+			if ok {
+				f.State = PreviousTagSize
+				fmt.Println()
+			}
+		}
+		if f.State == PreviousTagSize {
+			buf, ok, err = f.parsePreviousTagSize(buf)
+			if err != nil {
+				return nil, fmt.Errorf("f.parsePreviousTagSize failed, err:%v", err)
+			}
+			if ok {
+				f.State = Tag
+				f.PreviousTagSizeNum++
+				fmt.Println()
+			}
+		}
+		if f.State == Tag {
+			buf, ok, err = f.parseTag(buf)
+			if err != nil {
+				return nil, fmt.Errorf("f.parseTag failed, err:%v", err)
+			}
+			if ok {
+				f.State = PreviousTagSize
+				fmt.Println()
+			}
+		}
+		if !ok || len(buf) == 0 {
+			return buf, nil
 		}
 	}
-	if f.State == PreviousTagSize {
-		buf, ok, err = f.parsePreviousTagSize(buf)
-		if ok {
-			f.State = Tag
-			f.PreviousTagSizeNum++
-		}
-	}
-	if f.State == Tag {
-		buf, ok, err = f.parseTag(buf)
-		if ok {
-			f.State = PreviousTagSize
-		}
-	}
-	if err != nil {
-		return nil, fmt.Errorf("f.parse failed, err:%v", err)
-	}
-	return buf, nil
+
+	return nil, nil
 }
 
 func (f *Flv) parseHeader(buf []byte) ([]byte, bool, error) {
@@ -132,11 +321,13 @@ func (f *Flv) parsePreviousTagSize(buf []byte) ([]byte, bool, error) {
 
 func (f *Flv) parseTag(buf []byte) ([]byte, bool, error) {
 
+	f.CurrentTag = new(CurrentTag)
+	var index int
+
 	if len(buf) < 11 {
 		return buf, false, nil
 	}
 	dataSize, err := util.BytesToUint32ByBigEndian(buf[1:4])
-	//fmt.Printf("DataSize：%v buf:%x\n", dataSize, buf[1:4])
 	if err != nil {
 		return nil, false, fmt.Errorf("util.BytesToUint32ByBigEndian failed, err:%v", err)
 	}
@@ -144,7 +335,8 @@ func (f *Flv) parseTag(buf []byte) ([]byte, bool, error) {
 		return buf, false, nil
 	}
 
-	index := 0
+	f.CurrentTag.Length = int(11 + dataSize)
+
 	reserved := buf[index] & TagReservedMark >> 6
 	if reserved != 0 {
 		return nil, false, fmt.Errorf("reserved != 0, reserved:%v", reserved)
@@ -152,16 +344,19 @@ func (f *Flv) parseTag(buf []byte) ([]byte, bool, error) {
 	fmt.Println("Reserved is 0")
 
 	filter := buf[index] & TagFilterMark >> 5
-	fmt.Printf("Filter is %v\n", filter)
+	filterString, ok := FilterMap[filter]
+	if !ok {
+		return nil, false, fmt.Errorf("FilterMap[filter] failed, filter:%v", filter)
+	}
+	f.CurrentTag.Filter = filter
+	fmt.Printf("Filter is %v\n", filterString)
 
-	TagType, err := util.BytesToUint8ByBigEndian(buf[index] & TagTagTypeMark)
-	if err != nil {
-		return nil, false, fmt.Errorf("util.BytesToUint8ByBigEndian failed, err:%v", err)
+	tagType := util.BytesToUint8ByBigEndian(buf[index] & TagTagTypeMark)
+	if _, ok := TagTypeMap[tagType]; !ok {
+		return nil, false, fmt.Errorf("TagType is illegal, TagType:%v", tagType)
 	}
-	if TagType != 8 && TagType != 9 && TagType != 18 {
-		return nil, false, fmt.Errorf("TagType != 8 && TagType != 9 && TagType != 18, TagType:%v", TagType)
-	}
-	fmt.Printf("TagType is %v\n", TagTypeMap[TagType])
+	f.CurrentTag.TagType = tagType
+	fmt.Printf("TagType is %v\n", TagTypeMap[tagType])
 	index += 1
 
 	fmt.Printf("DataSize is %v\n", dataSize)
@@ -174,10 +369,7 @@ func (f *Flv) parseTag(buf []byte) ([]byte, bool, error) {
 	fmt.Printf("Timestamp is %v\n", timestamp)
 	index += 3
 
-	timestampExtended, err := util.BytesToUint8ByBigEndian(buf[index])
-	if err != nil {
-		return nil, false, fmt.Errorf("util.BytesToUint8ByBigEndian failed, err:%v", err)
-	}
+	timestampExtended := util.BytesToUint8ByBigEndian(buf[index])
 	fmt.Printf("TimestampExtended is %v\n", timestampExtended)
 	index += 1
 
@@ -191,34 +383,514 @@ func (f *Flv) parseTag(buf []byte) ([]byte, bool, error) {
 	fmt.Println("streamID is 0")
 	index += 3
 
-	if TagType == 8 {
-		length, err := f.parseAudioTagHeader(buf[index:])
+	if f.CurrentTag.TagType == TagTypeAudio {
+		index, err = f.parseAudioTagHeader(buf, index)
 		if err != nil {
 			return nil, false, fmt.Errorf("f.parseAudioTagHeader failed, err:%v", err)
 		}
-		index += length
 	}
 
+	if f.CurrentTag.TagType == TagTypeVideo {
+		index, err = f.parseVideoTagHeader(buf, index)
+		if err != nil {
+			return nil, false, fmt.Errorf("f.parseVideoTagHeader failed, err:%v", err)
+		}
+	}
 
-	return buf[:], true, nil
+	if f.CurrentTag.Filter == FilterPreProcessing {
+		index, err = f.parseEncryptionHeader(buf, index)
+		if err != nil {
+			return nil, false, fmt.Errorf("f.parseEncryptionHeader failed, err:%v", err)
+		}
+
+		index, err = f.parseFilterParams(buf, index)
+		if err != nil {
+			return nil, false, fmt.Errorf("f.parseFilterParams failed, err:%v", err)
+		}
+	}
+
+	index, err = f.parseData(buf, index)
+	if err != nil {
+		return nil, false, fmt.Errorf("f.parseData failed, err:%v", err)
+	}
+
+	//fmt.Printf("end index:%v\n", index)
+	return buf[11+dataSize:], true, nil
 }
 
-func (f *Flv) parseAudioTagHeader(buf []byte) (int, error) {
-	return 0, nil
+func (f *Flv) parseAudioTagHeader(buf []byte, index int) (int, error) {
+	if len(buf) < 1 {
+		return 0, fmt.Errorf("len(buf) < 1")
+	}
+
+	soundFormat := util.BytesToUint8ByBigEndian((buf[index] & SoundFormatMark) >> 4)
+	soundFormatString, ok := SoundFormatMap[soundFormat]
+	if !ok {
+		return 0, fmt.Errorf("SoundFormatMap[soundFormat] failed, soundFormat:%v", soundFormat)
+	}
+	f.CurrentTag.SoundFormat = soundFormat
+	fmt.Printf("soundFormat is %v\n", soundFormatString)
+
+	soundRate := util.BytesToUint8ByBigEndian((buf[index] & SoundRateMark) >> 2)
+	soundRateString, ok := SoundRateMap[soundRate]
+	if !ok {
+		return 0, fmt.Errorf("SoundRateMap[soundRate] failed, soundRate:%v", soundRate)
+	}
+	fmt.Printf("soundRate is %v\n", soundRateString)
+
+	soundSize := util.BytesToUint8ByBigEndian((buf[index] & SoundSizeMark) >> 1)
+	soundSizeString, ok := SoundSizeMap[soundSize]
+	if !ok {
+		return 0, fmt.Errorf("SoundSizeMap[soundRate] failed, soundSize:%v", soundSize)
+	}
+	fmt.Printf("soundSize is %v\n", soundSizeString)
+
+	soundType := util.BytesToUint8ByBigEndian((buf[index] & SoundTypeMark) >> 0)
+	soundTypeString, ok := SoundTypeMap[soundType]
+	if !ok {
+		return 0, fmt.Errorf("soundTypeMap[soundType] failed, soundType:%v", soundType)
+	}
+	fmt.Printf("soundType is %v\n", soundTypeString)
+
+	index += 1
+
+	if f.CurrentTag.SoundFormat == SoundFormatAAC {
+		if len(buf[index:]) < 1 {
+			return 0, fmt.Errorf("len(buf[%v:]) < 1", index)
+		}
+		aacPacketType := buf[index]
+		aacPacketTypeString, ok := AACPacketTypeMap[aacPacketType]
+		if !ok {
+			return 0, fmt.Errorf("AACPacketTypeMap[aacPacketType] failed, aacPacketType:%v", aacPacketType)
+		}
+		f.CurrentTag.AACPacketType = aacPacketType
+		fmt.Printf("aacPacketType is %v\n", aacPacketTypeString)
+
+		index += 1
+	}
+
+	return index, nil
 }
 
-func (f *Flv) parseVideoTagHeader(buf []byte) (int, error) {
-	return 0, nil
+func (f *Flv) parseVideoTagHeader(buf []byte, index int) (int, error) {
+	if len(buf) < 1 {
+		return 0, fmt.Errorf("len(buf) < 1")
+	}
+
+	frameType := util.BytesToUint8ByBigEndian(buf[index] & FrameTypeMark >> 4)
+	frameTypeString, ok := FrameTypeMap[frameType]
+	if !ok {
+		return 0, fmt.Errorf("FrameTypeMap[frameType] is not ok, frameType:%v", frameType)
+	}
+	f.CurrentTag.FrameType = frameType
+	fmt.Printf("FrameType is %v\n", frameTypeString)
+
+	codeId := util.BytesToUint8ByBigEndian(buf[index] & CodecIDMark)
+	codeIdString, ok := CodeIdMap[codeId]
+	if !ok {
+		return 0, fmt.Errorf("CodeIdMap[codeId] is not ok, codeId:%v", codeId)
+	}
+	f.CurrentTag.CodeId = codeId
+	fmt.Printf("CodeId is %v\n", codeIdString)
+
+	index += 1
+
+	if codeId == CodecIDAvc {
+		if len(buf[index:]) < 4 {
+			return 0, fmt.Errorf("len(buf[index:]) < 4")
+		}
+
+		avcPacketType := util.BytesToUint8ByBigEndian(buf[index])
+		avcPacketTypeString, ok := AvcPacketTypeMap[avcPacketType]
+		if !ok {
+			return 0, fmt.Errorf("AvcPacketTypeMap[avcPacketType] is not ok, avcPacketType:%v", avcPacketType)
+		}
+		f.CurrentTag.AVCPacketType = avcPacketType
+		fmt.Printf("AvcPacketType is %v\n", avcPacketTypeString)
+		index += 1
+
+		compositionTime, err := util.BytesToInt32ByBigEndian(buf[index : index+3])
+		if err != nil {
+			return 0, fmt.Errorf("util.BytesToInt32ByBigEndian failed, err:%v", err)
+		}
+		if avcPacketType != AvcPacketTypeAvcNalu && compositionTime != 0 {
+			return 0, fmt.Errorf("CompositionTime must to be 0")
+		}
+		fmt.Printf("CompositionTime is %v\n", compositionTime)
+		index += 3
+	}
+
+	return index, nil
 }
 
-func (f *Flv) parseEncryptionHeader(buf []byte) (int, error) {
-	return 0, nil
+func (f *Flv) parseEncryptionHeader(buf []byte, index int) (int, error) {
+	return 0, fmt.Errorf("parseEncryptionHeader error")
 }
 
-func (f *Flv) parseFilterParams(buf []byte) (int, error) {
-	return 0, nil
+func (f *Flv) parseFilterParams(buf []byte, index int) (int, error) {
+	return 0, fmt.Errorf("parseFilterParams error")
 }
 
-func (f *Flv) parseData(buf []byte) (int, error) {
-	return 0, nil
+func (f *Flv) parseData(buf []byte, index int) (int, error) {
+
+	var err error
+	if f.CurrentTag.TagType == TagTypeAudio {
+		index, err = f.parseAudioData(buf, index)
+		if err != nil {
+			return 0, fmt.Errorf("f.parseAudioData failed, err:%v", err)
+		}
+	}
+	if f.CurrentTag.TagType == TagTypeVideo {
+		index, err = f.parseVideoData(buf, index)
+		if err != nil {
+			return 0, fmt.Errorf("f.parseVideoData failed, err:%v", err)
+		}
+	}
+	if f.CurrentTag.TagType == TagTypeScriptData {
+		index, err = f.parseScriptData(buf, index)
+		if err != nil {
+			return 0, fmt.Errorf("f.parseScriptData failed, err:%v", err)
+		}
+	}
+	return index, nil
+}
+
+func (f *Flv) parseAudioData(buf []byte, index int) (int, error) {
+
+	var err error
+
+	if f.CurrentTag.Filter == FilterPreProcessing {
+		index, err = f.parseAudioDataEncryptedBody(buf, index)
+		if err != nil {
+			return 0, fmt.Errorf("f.parseAudioDataEncryptedBody failed, err:%v", err)
+		}
+	} else {
+		index, err = f.parseAudioDataAudioTagBody(buf, index)
+		if err != nil {
+			return 0, fmt.Errorf("f.parseAudioDataAudioTagBody failed, err:%v", err)
+		}
+	}
+	return index, nil
+}
+
+func (f *Flv) parseAudioDataEncryptedBody(buf []byte, index int) (int, error) {
+	return 0, fmt.Errorf("parseAudioDataEncryptedBody error")
+}
+
+func (f *Flv) parseAudioDataAudioTagBody(buf []byte, index int) (int, error) {
+	var err error
+	if f.CurrentTag.SoundFormat == SoundFormatAAC {
+		index, err = f.parseAacAudioData(buf, index)
+		if err != nil {
+			return 0, fmt.Errorf("f.parseAacAudioData failed, err:%v", err)
+		}
+	} else {
+		fmt.Printf("AudioDataAudioTagBody: Varies by format\n")
+	}
+
+	return index, nil
+}
+
+func (f *Flv) parseAacAudioData(buf []byte, index int) (int, error) {
+
+	var err error
+	if f.CurrentTag.AACPacketType == AACPacketTypeAacSequenceHeader {
+		index, err = f.parseAudioSpecificConfig(buf, index)
+		if err != nil {
+			return 0, fmt.Errorf("f.parseAudioSpecificConfig failed, err:%v", err)
+		}
+	} else if f.CurrentTag.AACPacketType == AACPacketTypeAacRaw {
+		index, err = f.parseRawAacFrameData(buf, index)
+		if err != nil {
+			return 0, fmt.Errorf("f.parseAudioSpecificConfig failed, err:%v", err)
+		}
+
+	}
+	return index, nil
+}
+
+func (f *Flv) parseRawAacFrameData(buf []byte, index int) (int, error) {
+	fmt.Printf("has Raw AAC frame data but not decode\n")
+	return f.CurrentTag.Length, nil
+}
+
+func (f *Flv) parseAudioSpecificConfig(buf []byte, index int) (int, error) {
+
+	fmt.Printf("has AudioSpecificConfig but not decode\n")
+	return f.CurrentTag.Length, nil
+}
+
+func (f *Flv) parseVideoData(buf []byte, index int) (int, error) {
+
+	var err error
+
+	if f.CurrentTag.Filter == FilterPreProcessing {
+		index, err = f.parseVideoDataEncryptedBody(buf, index)
+		if err != nil {
+			return 0, fmt.Errorf("f.parseVideoDataEncryptedBody failed, err:%v", err)
+		}
+	} else {
+		index, err = f.parseVideoDataTagBody(buf, index)
+		if err != nil {
+			return 0, fmt.Errorf("f.parseVideoDataTagBody failed, err:%v", err)
+		}
+	}
+
+	return index, nil
+}
+
+func (f *Flv) parseVideoDataEncryptedBody(buf []byte, index int) (int, error) {
+	return 0, fmt.Errorf("parseVideoDataEncryptedBody error")
+}
+
+func (f *Flv) parseVideoDataTagBody(buf []byte, index int) (int, error) {
+
+	var err error
+
+	if f.CurrentTag.FrameType == FrameTypeVideoInfoOrCommandFrame {
+		return 0, fmt.Errorf("FrameTypeVideoInfoOrCommandFrame error")
+	} else {
+
+		if f.CurrentTag.CodeId == CodecIDSorensonH263 {
+			return 0, fmt.Errorf("CodecIDSorensonH263 error")
+		}
+		if f.CurrentTag.CodeId == CodecIDScreenVideo {
+			return 0, fmt.Errorf("CodecIDScreenVideo error")
+		}
+		if f.CurrentTag.CodeId == CodecIDOn2Vp6 {
+			return 0, fmt.Errorf("CodecIDOn2Vp6 error")
+		}
+		if f.CurrentTag.CodeId == CodecIDOn2Vp6WithAlphaChannel {
+			return 0, fmt.Errorf("CodecIDOn2Vp6WithAlphaChannel error")
+		}
+		if f.CurrentTag.CodeId == CodecIDScreenVideoVersion2 {
+			return 0, fmt.Errorf("CodecIDScreenVideoVersion2 error")
+		}
+		if f.CurrentTag.CodeId == CodecIDAvc {
+			index, err = f.parseAvcVideoPacket(buf, index)
+			if err != nil {
+				return 0, fmt.Errorf("f.parseAvcVideoPacket failed, err:%v", err)
+			}
+		}
+	}
+
+	return index, nil
+}
+
+func (f *Flv) parseAvcVideoPacket(buf []byte, index int) (int, error) {
+
+	var err error
+
+	if f.CurrentTag.AVCPacketType == AvcPacketTypeAvcSequenceHeader {
+		index, err = f.parseAvcDecoderConfigurationRecord(buf, index)
+		if err != nil {
+			return 0, fmt.Errorf("f.parseAvcDecoderConfigurationRecord failed, err:%v", err)
+		}
+	}
+
+	if f.CurrentTag.AVCPacketType == AvcPacketTypeAvcNalu {
+		index, err = f.parseOneOrMoreNalus(buf, index)
+		if err != nil {
+			return 0, fmt.Errorf("f.parseOneOrMoreNalus failed, err:%v", err)
+		}
+	}
+
+	return index, nil
+}
+
+func (f *Flv) parseAvcDecoderConfigurationRecord(buf []byte, index int) (int, error) {
+	fmt.Printf("has AvcDecoderConfigurationRecord but not decode\n")
+	return f.CurrentTag.Length, nil
+}
+
+func (f *Flv) parseOneOrMoreNalus(buf []byte, index int) (int, error) {
+	fmt.Printf("has OneOrMoreNalus but not decode\n")
+	return f.CurrentTag.Length, nil
+}
+
+func (f *Flv) parseScriptData(buf []byte, index int) (int, error) {
+
+	if f.CurrentTag.Filter == FilterPreProcessing { // is Encrypted
+		return f.parseScriptDataEncryptedBody(buf, index)
+	} else {
+		return f.parseScriptDataTagBody(buf, index)
+	}
+}
+
+func (f *Flv) parseScriptDataEncryptedBody(buf []byte, index int) (int, error) {
+	return 0, fmt.Errorf("parseScriptDataEncryptedBody error")
+}
+
+func (f *Flv) parseScriptDataTagBody(buf []byte, index int) (int, error) {
+
+	var err error
+
+	index, err = f.parseScriptDataValue(buf, index)
+	if err != nil {
+		return 0, fmt.Errorf("f.parseScriptDataValue failed, err:%v", err)
+	}
+
+	index, err = f.parseScriptDataValue(buf, index)
+	if err != nil {
+		return 0, fmt.Errorf("f.parseScriptDataValue failed, err:%v", err)
+	}
+
+	return index, nil
+}
+
+func (f *Flv) parseScriptDataValue(buf []byte, index int) (int, error) {
+
+	if len(buf) < 1 {
+		return 0, fmt.Errorf("len(buf) < 1")
+	}
+
+	var err error
+
+	valueType := buf[index]
+	index += 1
+
+	valueTypeString, ok := ScriptDataValueTypeSet[valueType]
+	if !ok {
+		return 0, fmt.Errorf("ScriptDataValueTypeSet[valueType] is not ok, valueType:%v", valueType)
+	}
+	fmt.Printf("Script Data Value Type is %v\n", valueTypeString)
+
+	if valueType == ScriptDataValueTypeNumber {
+		if len(buf[index:]) < 8 {
+			return 0, fmt.Errorf("ScriptDataValueTypeNumber error: len(buf) < 8")
+		}
+		doubleValue, err := util.ByteToFloat64(buf[index : index+8])
+		if err != nil {
+			return 0, fmt.Errorf("util.ByteToFloat64 failed, err:%v ", err)
+		}
+		fmt.Printf("Script Data Value Number is %f\n", doubleValue)
+		index += 8
+	}
+
+	if valueType == ScriptDataValueTypeBoolean {
+		if len(buf[index:]) < 1 {
+			return 0, fmt.Errorf("ScriptDataValueTypeBoolean error: len(buf) < 1")
+		}
+		booleanValue := util.BytesToUint8ByBigEndian(buf[index])
+		fmt.Printf("Script Data Value Boolean is %v\n", booleanValue)
+
+		index += 1
+	}
+
+	if valueType == ScriptDataValueTypeString {
+		index, err = f.parseScriptDataString(buf, index)
+		if err != nil {
+			return 0, fmt.Errorf("f.parseScriptDataString failed, err:%v", err)
+		}
+	}
+
+	if valueType == ScriptDataValueTypeObject {
+		return 0, fmt.Errorf("ScriptDataValueTypeObject error")
+	}
+
+	if valueType == ScriptDataValueTypeReference {
+		return 0, fmt.Errorf("ScriptDataValueTypeReference error")
+	}
+
+	if valueType == ScriptDataValueTypeEcmaArray {
+		index, err = f.parseScriptDataEcmaArray(buf, index)
+		if err != nil {
+			return 0, fmt.Errorf("f.parseScriptDataEcmaArray failed, err:%v", err)
+		}
+
+	}
+
+	if valueType == ScriptDataValueTypeStrictArray {
+		return 0, fmt.Errorf("ScriptDataValueTypeStrictArray error")
+	}
+
+	if valueType == ScriptDataValueTypeDate {
+		return 0, fmt.Errorf("ScriptDataValueTypeDate error")
+	}
+
+	if valueType == ScriptDataValueTypeLongString {
+		return 0, fmt.Errorf("ScriptDataValueTypeLongString error")
+	}
+
+	return index, nil
+}
+
+func (f *Flv) parseScriptDataString(buf []byte, index int) (int, error) {
+	if len(buf) < 2 {
+		return 0, fmt.Errorf("len(buf) < 2")
+	}
+
+	var err error
+
+	stringLength, err := util.BytesToUint16ByBigEndian(buf[index : index+2])
+	if err != nil {
+		return 0, fmt.Errorf("util.BytesToUint16ByBigEndian failed, err:%v", err)
+	}
+	//fmt.Printf("stringLength is %v\n", stringLength)
+	index += 2
+
+	if len(buf[index:]) < int(stringLength) {
+		return 0, fmt.Errorf("parseScriptDataString error")
+	}
+
+	stringData := string(buf[index : index+int(stringLength)])
+	fmt.Printf("Script Data Value String is %v\n", stringData)
+
+	index += int(stringLength)
+
+	return index, nil
+}
+
+func (f *Flv) parseScriptDataEcmaArray(buf []byte, index int) (int, error) {
+
+	if len(buf) < 4 {
+		return 0, fmt.Errorf("len(buf) < 4")
+	}
+
+	var err error
+
+	ecmaArrayLength, err := util.BytesToUint32ByBigEndian(buf[index : index+4])
+	if err != nil {
+		return 0, fmt.Errorf("util.BytesToUint32ByBigEndian failed, err:%v", err)
+	}
+	fmt.Printf("ECMAArrayLength is %v\n", ecmaArrayLength)
+	index += 4
+
+	var i int64 = 0
+	for ; i < int64(ecmaArrayLength); i++ {
+		index, err = f.parseScriptDataString(buf, index)
+		if err != nil {
+			return 0, fmt.Errorf("f.parseScriptDataString failed, err:%v", err)
+		}
+
+		index, err = f.parseScriptDataValue(buf, index)
+		if err != nil {
+			return 0, fmt.Errorf("f.parseScriptDataValue failed, err:%v", err)
+		}
+	}
+
+	index, err = f.parseScriptDataObjectEnd(buf, index)
+	if err != nil {
+		return 0, fmt.Errorf("f.parseScriptDataObjectEnd failed, err:%v", err)
+	}
+
+	return index, nil
+}
+
+func (f *Flv) parseScriptDataObjectEnd(buf []byte, index int) (int, error) {
+	if len(buf) < 3 {
+		return 0, fmt.Errorf("len(buf) < 3")
+	}
+
+	objectEndMark := buf[index : index+3]
+	if util.BytesToUint8ByBigEndian(objectEndMark[0]) != 0 ||
+		util.BytesToUint8ByBigEndian(objectEndMark[1]) != 0 ||
+		util.BytesToUint8ByBigEndian(objectEndMark[2]) != 9 {
+		return 0, fmt.Errorf("objectEndMark is not 0 0 9, objectEndMark:%x", objectEndMark)
+	}
+
+	fmt.Println("objectEndMark is 0 0 9")
+
+	index += 3
+	return index, nil
 }
