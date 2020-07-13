@@ -11,7 +11,7 @@ func main() {
 
 	flvFile, err := os.Open("./test.flv")
 	if err != nil {
-		fmt.Printf("os.Open failed, err:%v\n", err)
+		fmt.Printf("os.Open(\"./test.flv\") failed, err:%v\n", err)
 	}
 
 	buf := make([]byte, 0)

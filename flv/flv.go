@@ -3,6 +3,7 @@ package flv
 import (
 	"flvParse/util"
 	"fmt"
+	"os"
 )
 
 const (
@@ -203,13 +204,31 @@ type CurrentTag struct {
 	AVCPacketType uint8
 	SoundFormat   uint8
 	AACPacketType uint8
+	SoundRate     uint8
 }
+
+var h264File *os.File
+var aacFile *os.File
 
 func (f *Flv) Parse(buf []byte) ([]byte, error) {
 	//fmt.Println("Parse")
 
 	var ok bool
 	var err error
+
+	if h264File == nil {
+		h264File, err = os.OpenFile("./test.h264", os.O_CREATE|os.O_RDWR, 0)
+		if err != nil {
+			return nil, fmt.Errorf("os.OpenFile(\"./test.h264\", os.O_CREATE|os.O_RDWR, 0) failed, err:%v\n", err)
+		}
+	}
+
+	if aacFile == nil {
+		aacFile, err = os.OpenFile("./test.aac", os.O_CREATE|os.O_RDWR, 0)
+		if err != nil {
+			return nil, fmt.Errorf("os.OpenFile(\"./test.aac\", os.O_CREATE|os.O_RDWR, 0) failed, err:%v\n", err)
+		}
+	}
 	for true {
 		if f.State == Header {
 			buf, ok, err = f.parseHeader(buf)
@@ -610,6 +629,16 @@ func (f *Flv) parseAacAudioData(buf []byte, index int) (int, error) {
 }
 
 func (f *Flv) parseRawAacFrameData(buf []byte, index int) (int, error) {
+	aacFrameLength := f.CurrentTag.Length - index + 7
+	byte3 := byte(0x8<<4 + aacFrameLength >> 11)
+	byte4 := byte(aacFrameLength >> 3)
+	byte5 := byte(aacFrameLength << 5 + 0b00011111)
+	byte6 := byte(0b11111100)
+
+	_, _ = aacFile.Write([]byte{0xFF, 0xF1, 0x50,byte3,byte4,byte5,byte6})
+
+
+	_, _ = aacFile.Write(buf[index:f.CurrentTag.Length])
 	fmt.Printf("has Raw AAC frame data but not decode\n")
 	return f.CurrentTag.Length, nil
 }
@@ -704,6 +733,8 @@ func (f *Flv) parseAvcDecoderConfigurationRecord(buf []byte, index int) (int, er
 }
 
 func (f *Flv) parseOneOrMoreNalus(buf []byte, index int) (int, error) {
+	_, _ = h264File.Write([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1})
+	_, _ = h264File.Write(buf[index:f.CurrentTag.Length])
 	fmt.Printf("has OneOrMoreNalus but not decode\n")
 	return f.CurrentTag.Length, nil
 }
