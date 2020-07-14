@@ -29,6 +29,11 @@ const (
 	SoundRateMark   byte = 0b00001100
 	SoundSizeMark   byte = 0b00000010
 	SoundTypeMark   byte = 0b00000001
+
+	AvcDecoderConfigurationRecordReserved0                     byte = 0b11111100
+	AvcDecoderConfigurationRecordLengthSizeMinusOne            byte = 0b00000011
+	AvcDecoderConfigurationRecordReserved1                     byte = 0b11100000
+	AvcDecoderConfigurationRecordNumberOfSequenceParameterSets byte = 0b00011111
 )
 
 const (
@@ -217,7 +222,7 @@ func (f *Flv) Parse(buf []byte) ([]byte, error) {
 	var err error
 
 	if h264File == nil {
-		h264File, err = os.OpenFile("./test.h264", os.O_CREATE|os.O_RDWR, 0)
+		h264File, err = os.OpenFile("./test.264", os.O_CREATE|os.O_RDWR, 0)
 		if err != nil {
 			return nil, fmt.Errorf("os.OpenFile(\"./test.h264\", os.O_CREATE|os.O_RDWR, 0) failed, err:%v\n", err)
 		}
@@ -630,13 +635,12 @@ func (f *Flv) parseAacAudioData(buf []byte, index int) (int, error) {
 
 func (f *Flv) parseRawAacFrameData(buf []byte, index int) (int, error) {
 	aacFrameLength := f.CurrentTag.Length - index + 7
-	byte3 := byte(0x8<<4 + aacFrameLength >> 11)
+	byte3 := byte(0x8<<4 + aacFrameLength>>11)
 	byte4 := byte(aacFrameLength >> 3)
-	byte5 := byte(aacFrameLength << 5 + 0b00011111)
+	byte5 := byte(aacFrameLength<<5 + 0b00011111)
 	byte6 := byte(0b11111100)
 
-	_, _ = aacFile.Write([]byte{0xFF, 0xF1, 0x50,byte3,byte4,byte5,byte6})
-
+	_, _ = aacFile.Write([]byte{0xFF, 0xF1, 0x50, byte3, byte4, byte5, byte6})
 
 	_, _ = aacFile.Write(buf[index:f.CurrentTag.Length])
 	fmt.Printf("has Raw AAC frame data but not decode\n")
@@ -728,15 +732,131 @@ func (f *Flv) parseAvcVideoPacket(buf []byte, index int) (int, error) {
 }
 
 func (f *Flv) parseAvcDecoderConfigurationRecord(buf []byte, index int) (int, error) {
-	fmt.Printf("has AvcDecoderConfigurationRecord but not decode\n")
+	if len(buf[index:]) < 6 {
+		return 0, fmt.Errorf("len(buf[index:]) < 5")
+	}
+
+	configurationVersion := buf[index]
+	if configurationVersion != 1 {
+		return 0, fmt.Errorf("configurationVersion != 1")
+	}
+	index++
+	fmt.Printf("configurationVersion is 0x1\n")
+
+	avcProfileIndication := buf[index]
+	index++
+	fmt.Printf("avcProfileIndication is 0x%x\n", avcProfileIndication)
+
+	profileCompatibility := buf[index]
+	index++
+	fmt.Printf("profileCompatibility is 0x%x\n", profileCompatibility)
+
+	avcLevelIndication := buf[index]
+	index++
+	fmt.Printf("avcLevelIndication is 0x%x\n", avcLevelIndication)
+
+	reserved0 := buf[index] & AvcDecoderConfigurationRecordReserved0 >> 2
+	if reserved0 != 0b00111111 {
+		return 0, fmt.Errorf("reserved != 0b00111111")
+	}
+	fmt.Printf("reserved0 is 0b%6b\n", reserved0)
+
+	lengthSizeMinusOne := buf[index] & AvcDecoderConfigurationRecordLengthSizeMinusOne
+	fmt.Printf("lengthSizeMinusOne is %v\n", lengthSizeMinusOne)
+
+	index++
+
+	reserved1 := buf[index] & AvcDecoderConfigurationRecordReserved1 >> 5
+	if reserved1 != 0b00000111 {
+		return 0, fmt.Errorf("reserved1 != 0b00000111")
+	}
+	fmt.Printf("reserved1 is 0b%3b\n", reserved1)
+
+	numberOfSequenceParameterSets := buf[index] &
+		AvcDecoderConfigurationRecordNumberOfSequenceParameterSets
+	fmt.Printf("numberOfSequenceParameterSets is %v\n", numberOfSequenceParameterSets)
+
+	index++
+
+	for i := 0; i < int(numberOfSequenceParameterSets); i++ {
+		if len(buf[index:]) < 2 {
+			return 0, fmt.Errorf("len(buf) < 2")
+		}
+		spsSize, err := util.BytesToUint32ByBigEndian(buf[index : index+2])
+		if err != nil {
+			return 0, fmt.Errorf("util.BytesToUint32ByBigEndian, err:%v", err)
+		}
+		index += 2
+		fmt.Printf("spsSize is %v\n", spsSize)
+
+		if len(buf[index:]) < int(spsSize) {
+			return 0, fmt.Errorf("len(buf[index:]) < int(spsSize)")
+		}
+		sps := buf[index : index+int(spsSize)]
+
+		_, _ = h264File.Write([]byte{0x00, 0x00, 0x00, 0x01})
+		_, _ = h264File.Write(sps)
+
+		index += int(spsSize)
+	}
+
+	if len(buf[index:]) < 1 {
+		return 0, fmt.Errorf("len(buf[index:]) < 1")
+	}
+	numberOfPictureParameterSets := buf[index]
+	index++
+
+	for i := 0; i < int(numberOfPictureParameterSets); i++ {
+		if len(buf[index:]) < 2 {
+			return 0, fmt.Errorf("len(buf) < 2")
+		}
+		ppsSize, err := util.BytesToUint32ByBigEndian(buf[index : index+2])
+		if err != nil {
+			return 0, fmt.Errorf("util.BytesToUint32ByBigEndian(buf[index : index+2]) failed, err:%v", err)
+		}
+		index += 2
+
+		if len(buf[index:]) < int(ppsSize) {
+			return 0, fmt.Errorf("len(buf[index:]) < int(ppsSize)")
+		}
+
+		pps := buf[index : index+int(ppsSize)]
+
+		_, _ = h264File.Write([]byte{0x00, 0x00, 0x00, 0x01})
+		_, _ = h264File.Write(pps)
+
+		index += int(ppsSize)
+	}
+
 	return f.CurrentTag.Length, nil
 }
 
 func (f *Flv) parseOneOrMoreNalus(buf []byte, index int) (int, error) {
-	_, _ = h264File.Write([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1})
-	_, _ = h264File.Write(buf[index:f.CurrentTag.Length])
-	fmt.Printf("has OneOrMoreNalus but not decode\n")
-	return f.CurrentTag.Length, nil
+	for true {
+		if len(buf) < 4 {
+			return 0, fmt.Errorf("len(buf) < 4")
+		}
+		naluLen, err := util.BytesToUint32ByBigEndian(buf[index : index+4])
+		if err != nil {
+			return 0, fmt.Errorf("util.BytesToUint32ByBigEndian(buf[index:index+4]), err:%v", err)
+		}
+		index += 4
+
+		if len(buf[index:]) < int(naluLen) {
+			return 0, fmt.Errorf("len(buf[index:]) < int(naluLen)")
+		}
+		fmt.Printf("nalu len:%v\n", naluLen)
+
+		_, _ = h264File.Write([]byte{0x00, 0x00, 0x00, 0x01})
+		_, _ = h264File.Write(buf[index : index+int(naluLen)])
+
+		index += int(naluLen)
+
+		if index == f.CurrentTag.Length {
+			return f.CurrentTag.Length, nil
+		}
+	}
+	return 0, fmt.Errorf("parseOneOrMoreNalus not run this")
 }
 
 func (f *Flv) parseScriptData(buf []byte, index int) (int, error) {
