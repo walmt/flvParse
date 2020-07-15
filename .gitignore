@@ -1,3 +1,4 @@
 .idea
-test.flv
-
+*.flv
+*.aac
+*.264

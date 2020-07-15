@@ -34,6 +34,12 @@ const (
 	AvcDecoderConfigurationRecordLengthSizeMinusOne            byte = 0b00000011
 	AvcDecoderConfigurationRecordReserved1                     byte = 0b11100000
 	AvcDecoderConfigurationRecordNumberOfSequenceParameterSets byte = 0b00011111
+
+	AacProfileMark               byte = 0b11111000
+	SamplingFrequency0Mark       byte = 0b00000111
+	SamplingFrequency1Mark       byte = 0b10000000
+	AacChannelMark               byte = 0b01111000
+	AudioSpecificConfigOtherMark byte = 0b00000111
 )
 
 const (
@@ -103,6 +109,40 @@ const (
 
 	AACPacketTypeAacSequenceHeader = 0
 	AACPacketTypeAacRaw            = 1
+
+	AACProfileMain = 0x01
+	AACProfileLC   = 0x02
+	AACProfileSSR  = 0x03
+
+	ADTSProfileMain = 0b00
+	ADTSProfileLC   = 0b01
+	ADTSProfileSSR  = 0b10
+
+	SamplingFrequency96000       = 0x00
+	SamplingFrequency88200       = 0x01
+	SamplingFrequency64000       = 0x02
+	SamplingFrequency48000       = 0x03
+	SamplingFrequency44100       = 0x04
+	SamplingFrequency32000       = 0x05
+	SamplingFrequency24000       = 0x06
+	SamplingFrequency22050       = 0x07
+	SamplingFrequency16000       = 0x08
+	SamplingFrequency12000       = 0x09
+	SamplingFrequency11025       = 0x0A
+	SamplingFrequency8000        = 0x0B
+	SamplingFrequencyReserved0   = 0x0C
+	SamplingFrequencyReserved1   = 0x0D
+	SamplingFrequencyReserved2   = 0x0E
+	SamplingFrequencyEscapeValue = 0x0F
+
+	AacChannelDefinedInAudioDecoderSpecificConfig = 0x00
+	AacChannelOne                                 = 0x01
+	AacChannelTwo                                 = 0x02
+	AacChannelThree                               = 0x03
+	AacChannelFour                                = 0x04
+	AacChannelFive                                = 0x05
+	AacChannelFivePointOne                        = 0x06
+	AacChannelSevenPointOne                       = 0x07
 )
 
 var TagTypeMap = map[uint8]string{
@@ -178,6 +218,49 @@ var AACPacketTypeMap = map[uint8]string{
 	AACPacketTypeAacRaw:            "AAC raw",
 }
 
+var AACProfileMap = map[uint8]string{
+	AACProfileMain: "AAC Main",
+	AACProfileLC:   "AAC LC",
+	AACProfileSSR:  "AAC SSR",
+}
+
+var AACProfile2ADTSProfile = map[uint8]uint8{
+	AACProfileMain: ADTSProfileMain,
+	AACProfileLC:   ADTSProfileLC,
+	AACProfileSSR:  ADTSProfileSSR,
+}
+
+var SamplingFrequencyMap = map[uint8]string{
+	SamplingFrequency96000:       "96000",
+	SamplingFrequency88200:       "88200",
+	SamplingFrequency64000:       "64000",
+	SamplingFrequency48000:       "48000",
+	SamplingFrequency44100:       "44100",
+	SamplingFrequency32000:       "32000",
+	SamplingFrequency24000:       "24000",
+	SamplingFrequency22050:       "22050",
+	SamplingFrequency16000:       "16000",
+	SamplingFrequency12000:       "12000",
+	SamplingFrequency11025:       "11025",
+	SamplingFrequency8000:        "8000",
+	SamplingFrequencyReserved0:   "Reserved0",
+	SamplingFrequencyReserved1:   "Reserved1",
+	SamplingFrequencyReserved2:   "Reserved2",
+	SamplingFrequencyEscapeValue: "EscapeValue",
+}
+
+var AacChannelMap = map[uint8]string{
+
+	AacChannelDefinedInAudioDecoderSpecificConfig: "defined in audioDecderSpecificConfig",
+	AacChannelOne:           "center front speaker",
+	AacChannelTwo:           "left, right front speakers",
+	AacChannelThree:         "center, left, right front speakers",
+	AacChannelFour:          "center, left, right front speakers, rear surround speakers",
+	AacChannelFive:          "center, left, right front speakers, left surround, right surround rear speakers",
+	AacChannelFivePointOne:  "center, left, right front speakers, left surround, right surround rear speakers, front low frequency effects speaker",
+	AacChannelSevenPointOne: "center, left, right center front speakers, left, right outside front speakers, left surround, right surround rear speakers, front low frequency effects speaker",
+}
+
 var ScriptDataValueTypeSet = map[uint8]string{
 	ScriptDataValueTypeNumber:          "Number",
 	ScriptDataValueTypeBoolean:         "Boolean",
@@ -197,7 +280,12 @@ var ScriptDataValueTypeSet = map[uint8]string{
 type Flv struct {
 	State              int
 	PreviousTagSizeNum int
-	CurrentTag         *CurrentTag
+
+	AACProfile        uint8
+	SamplingFrequency uint8
+	AacChannel        uint8
+
+	CurrentTag *CurrentTag
 }
 
 type CurrentTag struct {
@@ -635,12 +723,16 @@ func (f *Flv) parseAacAudioData(buf []byte, index int) (int, error) {
 
 func (f *Flv) parseRawAacFrameData(buf []byte, index int) (int, error) {
 	aacFrameLength := f.CurrentTag.Length - index + 7
-	byte3 := byte(0x8<<4 + aacFrameLength>>11)
+	adtsChannel := f.AacChannel & 0b00000111
+	byte0 := byte(0xFF)
+	byte1 := byte(0xF1)
+	byte2 := AACProfile2ADTSProfile[f.AACProfile]<<6 + f.SamplingFrequency<<2 + adtsChannel>>2
+	byte3 := adtsChannel<<6 + uint8(aacFrameLength>>11)
 	byte4 := byte(aacFrameLength >> 3)
 	byte5 := byte(aacFrameLength<<5 + 0b00011111)
 	byte6 := byte(0b11111100)
 
-	_, _ = aacFile.Write([]byte{0xFF, 0xF1, 0x50, byte3, byte4, byte5, byte6})
+	_, _ = aacFile.Write([]byte{byte0, byte1, byte2, byte3, byte4, byte5, byte6})
 
 	_, _ = aacFile.Write(buf[index:f.CurrentTag.Length])
 	fmt.Printf("has Raw AAC frame data but not decode\n")
@@ -649,8 +741,47 @@ func (f *Flv) parseRawAacFrameData(buf []byte, index int) (int, error) {
 
 func (f *Flv) parseAudioSpecificConfig(buf []byte, index int) (int, error) {
 
-	fmt.Printf("has AudioSpecificConfig but not decode\n")
-	return f.CurrentTag.Length, nil
+	if len(buf[index:]) < 2 {
+		return 0, fmt.Errorf("len(buf[index:]) < 2")
+	}
+
+	aacProfile := (buf[index] & AacProfileMark) >> 3
+	aacProfileString, ok := AACProfileMap[aacProfile]
+	if !ok {
+		return 0, fmt.Errorf("AACProfileMap[aacProfile] failed, aacProfile:%v", aacProfile)
+	}
+	f.AACProfile = aacProfile
+	fmt.Printf("aacProfile is %v\n", aacProfileString)
+
+	samplingFrequency := ((buf[index] & SamplingFrequency0Mark) << 1) +
+		((buf[index+1] & SamplingFrequency1Mark) >> 7)
+	samplingFrequencyString, ok := SamplingFrequencyMap[samplingFrequency]
+	if !ok {
+		return 0, fmt.Errorf("SamplingFrequencyMap[samplingFrequency] failed, "+
+			"samplingFrequencyString:%v", samplingFrequencyString)
+	}
+	f.SamplingFrequency = samplingFrequency
+	fmt.Printf("samplingFrequency is %v\n", samplingFrequencyString)
+
+	index++
+
+	aacChannel := (buf[index] & AacChannelMark) >> 3
+	aacChannelString, ok := AacChannelMap[aacChannel]
+	if !ok {
+		aacChannelString = "reserved"
+	}
+	f.AacChannel = aacProfile
+	fmt.Printf("aacChannel is %v\n", aacChannelString)
+
+	audioSpecificConfigOther := buf[index] & AudioSpecificConfigOtherMark
+	if audioSpecificConfigOther != 0 {
+		return 0, fmt.Errorf("audioSpecificConfigOther is not 0b000")
+	}
+	fmt.Printf("audioSpecificConfigOther is 0b000\n")
+
+	index++
+
+	return index, nil
 }
 
 func (f *Flv) parseVideoData(buf []byte, index int) (int, error) {
